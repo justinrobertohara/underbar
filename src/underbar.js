@@ -224,6 +224,7 @@
       },
       true
     );
+    //changed
 
     // TIP: Try re-using reduce() here.
   };
@@ -263,11 +264,27 @@
   //   }, {
   //     bla: "even more stuff"
   //   }); // obj1 now contains key1, key2, key3 and bla
-  _.extend = function(obj) {};
+  _.extend = function(obj) {
+    for (let o of arguments) {
+      for (let key in o) {
+        obj[key] = o[key];
+      }
+    }
+    return obj;
+  };
 
   // Like extend, but doesn't ever overwrite a key that already
   // exists in obj
-  _.defaults = function(obj) {};
+  _.defaults = function(obj) {
+    for (let o of arguments) {
+      for (let key in o) {
+        if (!obj.hasOwnProperty(key)) {
+          obj[key] = o[key];
+        }
+      }
+    }
+    return obj;
+  };
 
   /**
    * FUNCTIONS
@@ -308,7 +325,24 @@
   // _.memoize should return a function that, when called, will check if it has
   // already computed the result for the given argument and return that value
   // instead if possible.
-  _.memoize = function(func) {};
+  _.memoize = function(func) {
+    let memo = {};
+    return function() {
+      let args = JSON.stringify(arguments);
+      if (memo[args] === undefined) {
+        let result = func.apply(this, arguments);
+        memo[args] = result;
+        return result;
+      } else {
+        return memo[args];
+      }
+    };
+
+    /* return function() {
+      let tag = JSON.stringify(arguments);
+      return memo[tag] || (memo[tag] = func.apply(this, arguments));
+    };*/
+  };
 
   // Delays a function for the given number of milliseconds, and then calls
   // it with the arguments supplied.
@@ -316,7 +350,9 @@
   // The arguments for the original function are passed after the wait
   // parameter. For example _.delay(someFunction, 500, 'a', 'b') will
   // call someFunction('a', 'b') after 500ms
-  _.delay = function(func, wait) {};
+  _.delay = function(func, wait) {
+    return setTimeout.apply(this, arguments);
+  };
 
   /**
    * ADVANCED COLLECTION OPERATIONS
@@ -328,7 +364,25 @@
   // TIP: This function's test suite will ask that you not modify the original
   // input array. For a tip on how to make a copy of an array, see:
   // http://mdn.io/Array.prototype.slice
-  _.shuffle = function(array) {};
+  _.shuffle = function(array) {
+    let newArr = array;
+    let randomArr = [];
+
+    for (let i = 0; i < newArr.length; i++) {
+      let randomI = Math.floor(Math.random());
+      randomArr.splice(randomI, 0, newArr[i]);
+    }
+    return randomArr;
+
+    /*
+    for (let i = 0; i < array.length; i++) {
+      let j = Math.floor(Math.random() * array.length);
+      let temp = shuffled[i];
+      shuffled[i] = shuffled[j];
+      shuffled[j] = temp;
+    }
+    */
+  };
 
   /**
    * ADVANCED
@@ -340,39 +394,137 @@
 
   // Calls the method named by functionOrKey on each value in the list.
   // Note: You will need to learn a bit about .apply to complete this.
-  _.invoke = function(collection, functionOrKey, args) {};
+  _.invoke = function(collection, functionOrKey, args) {
+    if (typeof functionOrKey === 'function') {
+      return _.map(collection, item => {
+        return functionOrKey.apply(item, args);
+      });
+    } else {
+      return _.map(collection, item => {
+        return item[functionOrKey].apply(item, args);
+      });
+    }
+  };
 
   // Sort the object's values by a criterion produced by an iterator.
   // If iterator is a string, sort objects by that property with the name
   // of that string. For example, _.sortBy(people, 'name') should sort
   // an array of people by their name.
-  _.sortBy = function(collection, iterator) {};
+  _.sortBy = function(collection, iterator) {
+    let copy = collection;
+    if (typeof iterator === 'function') {
+      return copy.sort((a, b) => {
+        let left = iterator(a);
+        let right = iterator(b);
+        //return b[iterator] - a[iterator]
+        return left - right;
+      });
+    } else {
+      return copy.sort((a, b) => {
+        //when iterator is not a function, it is a property
+        //and does not need to called like a function
+        // e.g. 'length' is not a function
+        let left = a[iterator];
+        let right = b[iterator];
+        return left - right;
+      });
+    }
+  };
 
   // Zip together two or more arrays with elements of the same index
   // going together.
   //
   // Example:
   // _.zip(['a','b','c','d'], [1,2,3]) returns [['a',1], ['b',2], ['c',3], ['d',undefined]]
-  _.zip = function() {};
+  _.zip = function() {
+    let results = [];
+    _.each(arguments[0], (value, index, collection) => {
+      let element = [];
+      for (let arr of arguments) {
+        element.push(arr[index]);
+      }
+      results.push(element);
+    });
+    return results;
+  };
 
   // Takes a multidimensional array and converts it to a one-dimensional array.
   // The new array should contain all elements of the multidimensional array.
   //
   // Hint: Use Array.isArray to check if something is an array
-  _.flatten = function(nestedArray, result) {};
+  _.flatten = function(nestedArray, result) {
+    let newArr = nestedArray;
+
+    return _.reduce(
+      newArr,
+      (acc, val) => {
+        return Array.isArray(val)
+          ? acc.concat(_.flatten(val, result))
+          : acc.concat(val);
+      },
+      []
+    );
+  };
 
   // Takes an arbitrary number of arrays and produces an array that contains
   // every item shared between all the passed-in arrays.
-  _.intersection = function() {};
+  _.intersection = function() {
+    let results = [];
+    _.each(arguments[0], item => {
+      let inAllArrays = true;
+      for (let arr of arguments) {
+        if (!_.contains(arr, item)) {
+          inAllArrays = false;
+        }
+      }
+      if (inAllArrays) {
+        results.push(item);
+      }
+    });
+    return results;
+  };
 
   // Take the difference between one array and a number of other arrays.
   // Only the elements present in just the first array will remain.
-  _.difference = function(array) {};
+  _.difference = function(array) {
+    let args = [].concat(...arguments);
+    args = args.slice(array.length);
+    let results = [];
+
+    for (let i = 0; i < array.length; i++) {
+      if (_.indexOf(args, array[i]) === -1) {
+        results.push(array[i]);
+      }
+    }
+    return results;
+
+    /*let rest = _.flatten(Array.from(arguments).slice(1));
+    return _.filter(array, item => {
+      return !_.contains(rest, item);
+    });*/
+  };
 
   // Returns a function, that, when invoked, will only be triggered at most once
   // during a given window of time.  See the Underbar readme for extra details
   // on this function.
   //
   // Note: This is difficult! It may take a while to implement.
-  _.throttle = function(func, wait) {};
+  _.throttle = function(func, wait) {
+    // _.delay = function(func, wait) {
+    //   return setTimeout.apply(this, arguments);
+    // };
+
+    let bool = true;
+    let foo = func;
+
+    return function() {
+      if (bool) {
+        foo();
+        bool = false;
+        _.delay(() => {
+          bool = true;
+        }, wait);
+      }
+    };
+  };
 })();
